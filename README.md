@@ -13,9 +13,9 @@ local PredictionEnabled = true
 local PredictionAmount = 0.1
 local MaxRange = 400
 local SpeedValue = 700
+
 local AntiStunPower = 1.2
 
-local TargetPlayer = nil
 local TargetPosition = nil
 local ESPs = {}
 
@@ -26,45 +26,11 @@ if not espFolder then
     espFolder.Parent = game.CoreGui
 end
 
-local function getHRP(char)
-    return char and char:FindFirstChild("HumanoidRootPart")
-end
-
-local function isEnemy(plr)
-    if not LocalPlayer.Team or not plr.Team then return true end
-    return plr.Team ~= LocalPlayer.Team
-end
-
 local function getMainColor(plr)
     if LocalPlayer.Team and plr.Team and plr.Team == LocalPlayer.Team then
-        return Color3.fromRGB(0,255,0)
+        return Color3.fromRGB(0, 255, 0)
     end
-    return Color3.fromRGB(255,255,0)
-end
-
-local function getPredictedPosition(hrp)
-    if not PredictionEnabled then
-        return hrp.Position
-    end
-    return hrp.Position + (hrp.Velocity * PredictionAmount)
-end
-
-local function getClosestPlayer(hrp)
-    local closest, dist = nil, math.huge
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and isEnemy(plr) and plr.Character then
-            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
-            local thrp = getHRP(plr.Character)
-            if hum and hum.Health > 0 and thrp then
-                local d = (thrp.Position - hrp.Position).Magnitude
-                if d <= MaxRange and d < dist then
-                    dist = d
-                    closest = plr
-                end
-            end
-        end
-    end
-    return closest
+    return Color3.fromRGB(255, 255, 0)
 end
 
 local function createESP(plr)
@@ -87,7 +53,7 @@ local function createESP(plr)
     levelLabel.Font = Enum.Font.SourceSansBold
     levelLabel.TextSize = 13
     levelLabel.TextStrokeTransparency = 0.2
-    levelLabel.TextColor3 = Color3.fromRGB(0,170,255)
+    levelLabel.TextColor3 = Color3.fromRGB(0, 170, 255)
     levelLabel.TextXAlignment = Enum.TextXAlignment.Center
     levelLabel.Parent = gui
 
@@ -105,6 +71,38 @@ local function createESP(plr)
     ESPs[plr] = gui
 end
 
+local function getHRP(char)
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function getPredictedPosition(hrp)
+    if not PredictionEnabled then return hrp.Position end
+    return hrp.Position + (hrp.Velocity * PredictionAmount)
+end
+
+local function isEnemy(plr)
+    if not LocalPlayer.Team or not plr.Team then return true end
+    return plr.Team ~= LocalPlayer.Team
+end
+
+local function getClosestPlayer(hrp)
+    local closest, dist = nil, math.huge
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and isEnemy(plr) and plr.Character then
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            local thrp = getHRP(plr.Character)
+            if hum and hum.Health > 0 and thrp then
+                local d = (thrp.Position - hrp.Position).Magnitude
+                if d < dist and d <= MaxRange then
+                    dist = d
+                    closest = plr
+                end
+            end
+        end
+    end
+    return closest
+end
+
 task.spawn(function()
     local mt = getrawmetatable(game)
     setreadonly(mt, false)
@@ -113,18 +111,9 @@ task.spawn(function()
         local args = {...}
         if getnamecallmethod():lower() == "fireserver"
         and SilentAimEnabled
-        and TargetPlayer
+        and TargetPosition
         and typeof(args[1]) == "Vector3" then
-            local char = LocalPlayer.Character
-            local hrp = getHRP(char)
-            local tChar = TargetPlayer.Character
-            local tHRP = tChar and getHRP(tChar)
-            if hrp and tHRP then
-                local dist = (tHRP.Position - hrp.Position).Magnitude
-                if dist <= MaxRange then
-                    args[1] = getPredictedPosition(tHRP)
-                end
-            end
+            args[1] = TargetPosition
             return old(self, unpack(args))
         end
         return old(self, ...)
@@ -150,9 +139,15 @@ RunService.RenderStepped:Connect(function()
     end
 
     if SilentAimEnabled then
-        TargetPlayer = getClosestPlayer(hrp)
+        local target = getClosestPlayer(hrp)
+        if target and target.Character then
+            local thrp = getHRP(target.Character)
+            if thrp then
+                TargetPosition = getPredictedPosition(thrp)
+            end
+        end
     else
-        TargetPlayer = nil
+        TargetPosition = nil
     end
 
     for _, plr in ipairs(Players:GetPlayers()) do
@@ -199,12 +194,15 @@ UserInputService.InputBegan:Connect(function(input, gp)
 
     if input.KeyCode == Enum.KeyCode.L then
         ESPEnabled = not ESPEnabled
+
     elseif input.KeyCode == Enum.KeyCode.B then
         SilentAimEnabled = not SilentAimEnabled
+
     elseif input.KeyCode == Enum.KeyCode.K then
         SpeedEnabled = not SpeedEnabled
         AntiStunEnabled = SpeedEnabled
         AntiStunPower = 1.2
+
     elseif input.KeyCode == Enum.KeyCode.P then
         if not SpeedEnabled then
             AntiStunEnabled = not AntiStunEnabled
