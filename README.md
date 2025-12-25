@@ -25,13 +25,6 @@ if not espFolder then
     espFolder.Parent = game.CoreGui
 end
 
-local function getMainColor(plr)
-    if LocalPlayer.Team and plr.Team and plr.Team == LocalPlayer.Team then
-        return Color3.fromRGB(0,255,0)
-    end
-    return Color3.fromRGB(255,255,0)
-end
-
 local function getHRP(char)
     return char and char:FindFirstChild("HumanoidRootPart")
 end
@@ -39,6 +32,13 @@ end
 local function isEnemy(plr)
     if not LocalPlayer.Team or not plr.Team then return true end
     return plr.Team ~= LocalPlayer.Team
+end
+
+local function getMainColor(plr)
+    if LocalPlayer.Team and plr.Team and plr.Team == LocalPlayer.Team then
+        return Color3.fromRGB(0,255,0)
+    end
+    return Color3.fromRGB(255,255,0)
 end
 
 local function getPredicted(hrp)
@@ -169,23 +169,19 @@ RunService.RenderStepped:Connect(function()
             local pHum = pChar and pChar:FindFirstChildOfClass("Humanoid")
 
             if ESPEnabled and gui and pHRP and pHum then
+                gui.Enabled = true
+                gui.Adornee = pChar:FindFirstChild("Head")
+
                 local dist = math.floor((hrp.Position - pHRP.Position).Magnitude)
-                if dist <= MaxRange then
-                    gui.Enabled = true
-                    gui.Adornee = pChar:FindFirstChild("Head")
-
-                    local lvl = "?"
-                    local data = plr:FindFirstChild("Data")
-                    if data and data:FindFirstChild("Level") then
-                        lvl = data.Level.Value
-                    end
-
-                    gui.Level.Text = "Lv. "..lvl
-                    gui.Main.Text = "["..math.floor(pHum.Health).."] "..plr.DisplayName.." ("..dist.."m)"
-                    gui.Main.TextColor3 = getMainColor(plr)
-                else
-                    gui.Enabled = false
+                local lvl = "?"
+                local data = plr:FindFirstChild("Data")
+                if data and data:FindFirstChild("Level") then
+                    lvl = data.Level.Value
                 end
+
+                gui.Level.Text = "Lv. "..lvl
+                gui.Main.Text = "["..math.floor(pHum.Health).."] "..plr.DisplayName.." ("..dist.."m)"
+                gui.Main.TextColor3 = getMainColor(plr)
             elseif gui then
                 gui.Enabled = false
             end
