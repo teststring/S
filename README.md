@@ -1,24 +1,32 @@
+-- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
+-- Player
 local LocalPlayer = Players.LocalPlayer
 
+-- Toggles
 local ESPEnabled = false
 local SilentAimEnabled = false
 local SpeedEnabled = false
 local AntiStunEnabled = false
 
+-- Silent Aim
 local PredictionEnabled = true
 local PredictionAmount = 0.1
 local MaxRange = 400
-local SpeedValue = 700
+local MaxRangeSq = MaxRange * MaxRange
 
+-- Speed / AntiStun
+local SpeedValue = 700
 local AntiStunPower = 1.2
 
+-- Vars
 local TargetPosition = nil
 local ESPs = {}
 
+-- ESP Folder
 local espFolder = game.CoreGui:FindFirstChild("PlayerESP")
 if not espFolder then
     espFolder = Instance.new("Folder")
@@ -26,6 +34,7 @@ if not espFolder then
     espFolder.Parent = game.CoreGui
 end
 
+-- Utils
 local function getMainColor(plr)
     if LocalPlayer.Team and plr.Team and plr.Team == LocalPlayer.Team then
         return Color3.fromRGB(0, 255, 0)
@@ -33,6 +42,25 @@ local function getMainColor(plr)
     return Color3.fromRGB(255, 255, 0)
 end
 
+local function getHRP(char)
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function isEnemy(plr)
+    if not LocalPlayer.Team or not plr.Team then
+        return true
+    end
+    return plr.Team ~= LocalPlayer.Team
+end
+
+local function getPredictedPosition(hrp)
+    if not PredictionEnabled then
+        return hrp.Position
+    end
+    return hrp.Position + (hrp.Velocity * PredictionAmount)
+end
+
+-- ESP
 local function createESP(plr)
     if ESPs[plr] or not plr.Character then return end
     local head = plr.Character:FindFirstChild("Head")
@@ -71,44 +99,40 @@ local function createESP(plr)
     ESPs[plr] = gui
 end
 
-local function getHRP(char)
-    return char and char:FindFirstChild("HumanoidRootPart")
-end
-
-local function getPredictedPosition(hrp)
-    if not PredictionEnabled then return hrp.Position end
-    return hrp.Position + (hrp.Velocity * PredictionAmount)
-end
-
-local function isEnemy(plr)
-    if not LocalPlayer.Team or not plr.Team then return true end
-    return plr.Team ~= LocalPlayer.Team
-end
-
+-- 🔥 CLOSEST PLAYER (MAX RANGE ARRUMADO)
 local function getClosestPlayer(hrp)
-    local closest, dist = nil, math.huge
+    local closest = nil
+    local closestDistSq = math.huge
+
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer and isEnemy(plr) and plr.Character then
             local hum = plr.Character:FindFirstChildOfClass("Humanoid")
             local thrp = getHRP(plr.Character)
+
             if hum and hum.Health > 0 and thrp then
-                local d = (thrp.Position - hrp.Position).Magnitude
-                if d < dist and d <= MaxRange then
-                    dist = d
+                local diff = thrp.Position - hrp.Position
+                local distSq = diff.X*diff.X + diff.Y*diff.Y + diff.Z*diff.Z
+
+                if distSq <= MaxRangeSq and distSq < closestDistSq then
+                    closestDistSq = distSq
                     closest = plr
                 end
             end
         end
     end
+
     return closest
 end
 
+-- Silent Aim Hook
 task.spawn(function()
     local mt = getrawmetatable(game)
     setreadonly(mt, false)
+
     local old
     old = hookmetamethod(game, "__namecall", function(self, ...)
         local args = {...}
+
         if getnamecallmethod():lower() == "fireserver"
         and SilentAimEnabled
         and TargetPosition
@@ -116,21 +140,26 @@ task.spawn(function()
             args[1] = TargetPosition
             return old(self, unpack(args))
         end
+
         return old(self, ...)
     end)
+
     setreadonly(mt, true)
 end)
 
+-- Main Loop
 RunService.RenderStepped:Connect(function()
     local char = LocalPlayer.Character
     local hrp = getHRP(char)
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if not hrp or not hum then return end
 
+    -- Speed
     if SpeedEnabled then
         hum.WalkSpeed = SpeedValue
     end
 
+    -- AntiStun
     if AntiStunEnabled then
         local move = hum.MoveDirection
         if move.Magnitude > 0 then
@@ -138,6 +167,7 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
+    -- Silent Aim
     if SilentAimEnabled then
         local target = getClosestPlayer(hrp)
         if target and target.Character then
@@ -150,6 +180,7 @@ RunService.RenderStepped:Connect(function()
         TargetPosition = nil
     end
 
+    -- ESP Update
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then
             if not ESPs[plr] then
@@ -167,13 +198,17 @@ RunService.RenderStepped:Connect(function()
 
                 local dist = math.floor((hrp.Position - pHRP.Position).Magnitude)
                 local level = "?"
+
                 local data = plr:FindFirstChild("Data")
                 if data and data:FindFirstChild("Level") then
                     level = data.Level.Value
                 end
 
                 gui.Level.Text = "Lv. " .. level
-                gui.Main.Text = "[" .. math.floor(pHum.Health) .. "] " .. plr.DisplayName .. " (" .. dist .. "m)"
+                gui.Main.Text =
+                    "[" .. math.floor(pHum.Health) .. "] "
+                    .. plr.DisplayName .. " (" .. dist .. "m)"
+
                 gui.Main.TextColor3 = getMainColor(plr)
             elseif gui then
                 gui.Enabled = false
@@ -182,6 +217,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- Cleanup
 Players.PlayerRemoving:Connect(function(plr)
     if ESPs[plr] then
         ESPs[plr]:Destroy()
@@ -189,6 +225,7 @@ Players.PlayerRemoving:Connect(function(plr)
     end
 end)
 
+-- Binds
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
 
@@ -206,9 +243,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
     elseif input.KeyCode == Enum.KeyCode.P then
         if not SpeedEnabled then
             AntiStunEnabled = not AntiStunEnabled
-            if AntiStunEnabled then
-                AntiStunPower = 0.4
-            end
+            AntiStunPower = AntiStunEnabled and 0.4 or 1.2
         end
     end
 end)
