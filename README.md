@@ -12,7 +12,7 @@ local SilentAimEnabled = false
 local SpeedEnabled = false
 local AntiStunEnabled = false
 
--- Silent Aim
+-- Silent Aim config
 local PredictionEnabled = true
 local PredictionAmount = 0.1
 local MaxRange = 400
@@ -35,13 +35,6 @@ if not espFolder then
 end
 
 -- Utils
-local function getMainColor(plr)
-    if LocalPlayer.Team and plr.Team and plr.Team == LocalPlayer.Team then
-        return Color3.fromRGB(0, 255, 0)
-    end
-    return Color3.fromRGB(255, 255, 0)
-end
-
 local function getHRP(char)
     return char and char:FindFirstChild("HumanoidRootPart")
 end
@@ -58,6 +51,13 @@ local function getPredictedPosition(hrp)
         return hrp.Position
     end
     return hrp.Position + (hrp.Velocity * PredictionAmount)
+end
+
+local function getMainColor(plr)
+    if LocalPlayer.Team and plr.Team and plr.Team == LocalPlayer.Team then
+        return Color3.fromRGB(0, 255, 0)
+    end
+    return Color3.fromRGB(255, 255, 0)
 end
 
 -- ESP
@@ -99,7 +99,7 @@ local function createESP(plr)
     ESPs[plr] = gui
 end
 
--- 🔥 CLOSEST PLAYER (MAX RANGE ARRUMADO)
+-- 🔥 Closest player (MaxRange REAL)
 local function getClosestPlayer(hrp)
     local closest = nil
     local closestDistSq = math.huge
@@ -124,7 +124,7 @@ local function getClosestPlayer(hrp)
     return closest
 end
 
--- Silent Aim Hook
+-- Silent Aim hook
 task.spawn(function()
     local mt = getrawmetatable(game)
     setreadonly(mt, false)
@@ -147,7 +147,7 @@ task.spawn(function()
     setreadonly(mt, true)
 end)
 
--- Main Loop
+-- Main loop
 RunService.RenderStepped:Connect(function()
     local char = LocalPlayer.Character
     local hrp = getHRP(char)
@@ -167,7 +167,10 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Silent Aim
+    -- 🔑 CORREÇÃO PRINCIPAL
+    -- sempre limpa antes de calcular
+    TargetPosition = nil
+
     if SilentAimEnabled then
         local target = getClosestPlayer(hrp)
         if target and target.Character then
@@ -176,11 +179,9 @@ RunService.RenderStepped:Connect(function()
                 TargetPosition = getPredictedPosition(thrp)
             end
         end
-    else
-        TargetPosition = nil
     end
 
-    -- ESP Update
+    -- ESP update
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then
             if not ESPs[plr] then
