@@ -13,6 +13,7 @@ local PredictionEnabled = true
 local PredictionAmount = 0.1
 local MaxRange = 400
 local SpeedValue = 700
+
 local AntiStunPower = 1.2
 
 local TargetPosition = nil
@@ -105,33 +106,18 @@ end
 task.spawn(function()
     local mt = getrawmetatable(game)
     setreadonly(mt, false)
-
     local old
     old = hookmetamethod(game, "__namecall", function(self, ...)
         local args = {...}
-
-        if getnamecallmethod() == "FireServer"
+        if getnamecallmethod():lower() == "fireserver"
         and SilentAimEnabled
         and TargetPosition
         and typeof(args[1]) == "Vector3" then
-
-            local char = LocalPlayer.Character
-            local hrp = char and getHRP(char)
-
-            if hrp then
-                local dist = (TargetPosition - hrp.Position).Magnitude
-                if dist > MaxRange then
-                    return old(self, ...)
-                end
-            end
-
             args[1] = TargetPosition
             return old(self, unpack(args))
         end
-
         return old(self, ...)
     end)
-
     setreadonly(mt, true)
 end)
 
@@ -157,15 +143,8 @@ RunService.RenderStepped:Connect(function()
         if target and target.Character then
             local thrp = getHRP(target.Character)
             if thrp then
-                local dist = (thrp.Position - hrp.Position).Magnitude
-                if dist <= MaxRange then
-                    TargetPosition = getPredictedPosition(thrp)
-                else
-                    TargetPosition = nil
-                end
+                TargetPosition = getPredictedPosition(thrp)
             end
-        else
-            TargetPosition = nil
         end
     else
         TargetPosition = nil
