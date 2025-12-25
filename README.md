@@ -1,464 +1,249 @@
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/land9678/Sapi-Hub-V1/refs/heads/main/KavoUI.txt"))()
-local AimlockModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/jaanu91/Ip/refs/heads/main/Dk"))()
-local ESPModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/jaanu91/Ip/refs/heads/main/Gk"))()
-local SilentAimModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/jaanu91/Ip/refs/heads/main/Bg"))()
-local StuffsModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/jaanu91/Ip/refs/heads/main/Stuf"))()
-local OthersStuffsModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/jaanu91/Ip/refs/heads/main/Mot"))()
-local UiSettingsModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/jaanu91/Ip/refs/heads/main/Vot"))()
-local ZSkillModule = loadstring(game:HttpGet("https://raw.githubusercontent.com/jaanu91/Ip/refs/heads/main/Teku"))()
 local Players = game:GetService("Players")
-local HttpService = game:GetService("HttpService")
-local UserInputService = game:GetService("UserInputService")  
-local TeleportService = game:GetService("TeleportService")
-local PlayerList = {"None"}
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
-local toggleGui = Instance.new("ScreenGui")
-toggleGui.Name = "ToggleGui"
-toggleGui.Parent = game.CoreGui
+local LocalPlayer = Players.LocalPlayer
 
-local toggleButton = Instance.new("ImageButton")
-toggleButton.Name = "SHV1"
-toggleButton.Size = UDim2.new(0, 40, 0, 40)
-toggleButton.Position = UDim2.new(0, 5, 0, 10)
-toggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-toggleButton.BackgroundTransparency = 0.2
-toggleButton.BorderSizePixel = 0
-toggleButton.ZIndex = 9999
-toggleButton.Image = "rbxassetid://76926193047725"
-toggleButton.Parent = toggleGui
+local ESPEnabled = false
+local SilentAimEnabled = false
+local SpeedEnabled = false
+local AntiStunEnabled = false
 
-local toggleCorner = Instance.new("UICorner")
-toggleCorner.CornerRadius = UDim.new(0, 8)
-toggleCorner.Parent = toggleButton
+local PredictionEnabled = true
+local PredictionAmount = 0.1
+local MaxRange = 400
+local SpeedValue = 700
 
-UiSettingsModule:MakeDraggable(toggleButton)
+local AntiStunPower = 1.2
 
-local Settings = OthersStuffsModule.LoadSettings()
+local TargetPosition = nil
+local CurrentTargetHRP = nil
+local ESPs = {}
 
-local executor = "Unknown"
-if syn then
-    executor = "Synapse X"
-elseif KRNL_LOADED then
-    executor = "KRNL"
-elseif fluxus then
-    executor = "Fluxus"
-elseif getexecutorname then
-    local success, execName = pcall(getexecutorname)
-    if success and type(execName) == "string" then
-        executor = execName
-    end
+-- =========================
+-- ESP FOLDER
+-- =========================
+local espFolder = game.CoreGui:FindFirstChild("PlayerESP")
+if not espFolder then
+    espFolder = Instance.new("Folder")
+    espFolder.Name = "PlayerESP"
+    espFolder.Parent = game.CoreGui
 end
 
-local execStatus = (executor == "Xeno" or executor:lower():find("solara") or executor:lower():find("krnl")) and "Not Working" or "Working"
-
-local Window = Library.CreateLib("Sapi Hub BF PvP ˃ᴗ˂  |  " .. executor, UiSettingsModule.currentTheme)
-
-local Tab = Window:NewTab("◇・Executor Status")
-local Section = Tab:NewSection("◈・Information")
-
-Section:NewLabel("Executor: " .. executor)
-Section:NewLabel("Status: " .. execStatus)
-
-local Tab = Window:NewTab("⛓・ChangesLogs")
-local Section = Tab:NewSection("✏・Updated")
-
-Section:NewLabel("• Added Info Of Target (Name/Health) ✔")
-Section:NewLabel("• Optimized Script ✔")
-Section:NewLabel("• Improved Fps Boost ✔")
-Section:NewLabel("• Fixed Soul Guitar M1in Silent aim ✔")
-Section:NewLabel("• Added RTX Graphic(Visual Vibes) ✔")
-Section:NewLabel("• Added Custom Global Text ✔")
-Section:NewLabel("• Added Dash No CD ✔")
-Section:NewLabel("• Added Remove Fog or Lava ✔")
-Section:NewLabel("• Added Z Skills Work(Except Godhuman Z) ✔")
-Section:NewLabel("• Added Fruit M1 Closet Attack ✔")
-Section:NewLabel("• Fixed Buddy Sword X in Silent aim ✔")
-
-local Tab = Window:NewTab("❖・Aimbot")
-local Section = Tab:NewSection("☘・Settings")
-
-local AimlockPlayersToggle = Section:NewToggle("・Aimlock Players", "Lock onto nearest player", function(state)
-    AimlockModule:SetPlayerAimlock(state)
-    Settings["AimlockPlayers"] = state
-end)
-
-local AimlockPlayersMiniTogglePlayersToggle = Section:NewToggle("・Aimlock Mini Toggle Players", "Lock onto nearest player", function(state)
-    AimlockModule:SetMiniTogglePlayerAimlock(state)
-    Settings["AimlockPlayersMiniTogglePlayers"] = state
-end)
-
-local AimlockNPCToggle = Section:NewToggle("・Aimlock NPC", "Lock onto nearest NPC/Boss", function(state)
-    AimlockModule:SetNpcAimlock(state)
-    Settings["AimlockNPC"] = state
-end)
-
-local AimlockPlayersMiniToggleNPCToggle = Section:NewToggle("・Aimlock Mini Toggle NPC", "Lock onto nearest NPC/Boss", function(state)
-    AimlockModule:SetMiniToggleNpcAimlock(state)
-    Settings["AimlockPlayersMiniToggleNPC"] = state
-end)
-
-local PredictionToggle = Section:NewToggle("・Prediction", "Predict enemy movement", function(state)
-    AimlockModule:SetPrediction(state)
-    Settings["Prediction"] = state
-end)
-
-Section:NewDropdown("・Prediction Amount | Default 0.1s", "Select max Prediction for Aimlock", {"0.2", "0.3", "0.4"}, function(selected)
-    local num = tonumber(selected)
-    if num then
-        AimlockModule:SetPredictionTime(num)
-        Settings["PredictionAmount"] = num
+-- =========================
+-- UTILS
+-- =========================
+local function getMainColor(plr)
+    if LocalPlayer.Team and plr.Team and plr.Team == LocalPlayer.Team then
+        return Color3.fromRGB(0, 255, 0)
     end
-end)
-
-local Tab = Window:NewTab("⛩・Silent Aimbot")
-local Section = Tab:NewSection("⚓・Settings")
-
-local SilentAimPlayersToggle = Section:NewToggle("・SilentAim Players", "Lock onto nearest player", function(state)
-    SilentAimModule:SetPlayerSilentAim(state)
-    Settings["SilentAimPlayers"] = state
-end)
-
-local SilentMiniTogglePlayersToggle = Section:NewToggle("・SilentAim Mini Toggle Players", "Lock onto nearest player", function(state)
-    SilentAimModule:SetMiniTogglePlayerSilentAim(state)
-    Settings["SilentMiniTogglePlayers"] = state
-end)
-
-local SilentAimNPCToggle = Section:NewToggle("・SilentAim Npcs", "Lock onto nearest npc", function(state)
-    SilentAimModule:SetNPCSilentAim(state)
-    Settings["SilentAimNPC"] = state
-end)
-
-local SilentMiniToggleNPCToggle = Section:NewToggle("・SilentAim Mini Toggle NPC", "Lock onto nearest NPC/Boss", function(state)
-    SilentAimModule:SetMiniToggleNpcSilentAim(state)
-    Settings["SilentMiniToggleNPC"] = state
-end)
-
-local SilentAimPedictionToggle = Section:NewToggle("・SilentAim Prediction", "Prediction on target", function(state)
-    SilentAimModule:SetPrediction(state)
-    Settings["SilentAimPediction"] = state
-end)
-
-Section:NewDropdown("・Prediction Future | Default 0.1s", "Select max Prediction for Silent Aim", {"0.2", "0.3", "0.4"}, function(selected)
-    local num = tonumber(selected)
-    if num then
-        SilentAimModule:SetPredictionAmount(num)
-        Settings["SilentAimPredictionFuture"] = num
-    end
-end)
-
-Section:NewDropdown("・Distance Limit | Default 1000m", "Select max distance for aimbot", {"200", "400", "600"}, function(selected)
-    local num = tonumber(selected)
-    if num then
-        SilentAimModule:SetDistanceLimit(num)
-        Settings["SilentAimDistanceLimit"] = num
-    end
-end)
-
-for _, plr in ipairs(Players:GetPlayers()) do
-    if plr ~= Players.LocalPlayer then
-        table.insert(PlayerList, plr.Name)
-    end
+    return Color3.fromRGB(255, 255, 0)
 end
 
-local PlayerDropdown = Section:NewDropdown("・Select Player Target", "Choose a player to lock onto", PlayerList, function(selected)
-    if selected == "None" then
-        SilentAimModule:SetSelectedPlayer(nil)
-    else
-        SilentAimModule:SetSelectedPlayer(selected)
-    end
-end)
+local function getHRP(char)
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
 
-local function RefreshPlayerList()
-    local newList = {"None"}
+local function isEnemy(plr)
+    if not LocalPlayer.Team or not plr.Team then return true end
+    return plr.Team ~= LocalPlayer.Team
+end
+
+-- =========================
+-- PREDICTION (SEGURA)
+-- =========================
+local function getPredictedPosition(hrp)
+    if not hrp then return nil end
+    local hum = hrp.Parent:FindFirstChildOfClass("Humanoid")
+
+    if not PredictionEnabled or not hum or hum.WalkSpeed < 5 then
+        return hrp.Position
+    end
+
+    return hrp.Position + (hrp.Velocity * PredictionAmount)
+end
+
+-- =========================
+-- TARGET ACQUISITION (MAX RANGE REAL)
+-- =========================
+local function getClosestPlayer(lpHRP)
+    local closest, closestDist = nil, math.huge
+
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= Players.LocalPlayer then
-            table.insert(newList, plr.Name)
+        if plr ~= LocalPlayer and isEnemy(plr) and plr.Character then
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            local hrp = getHRP(plr.Character)
+
+            if hum and hum.Health > 0 and hrp then
+                local dist = (hrp.Position - lpHRP.Position).Magnitude
+                if dist <= MaxRange and dist < closestDist then
+                    closestDist = dist
+                    closest = hrp
+                end
+            end
         end
     end
-    PlayerDropdown:Refresh(newList, true)
+
+    return closest
 end
 
-Players.PlayerAdded:Connect(RefreshPlayerList)
-Players.PlayerRemoving:Connect(RefreshPlayerList)
-RefreshPlayerList()
+-- =========================
+-- METAMETHOD HOOK (REVALIDA RANGE)
+-- =========================
+task.spawn(function()
+    local mt = getrawmetatable(game)
+    setreadonly(mt, false)
 
-local ZSkillToggle = Section:NewToggle("・GodhumanZ Aimlock", "I only set Godhuman", function(state)
-    ZSkillModule:SetZSkills(state)
-    Settings["ZSkills"] = state
+    local old
+    old = hookmetamethod(game, "__namecall", function(self, ...)
+        local args = {...}
+        local method = getnamecallmethod():lower()
+
+        if method == "fireserver"
+        and SilentAimEnabled
+        and TargetPosition
+        and typeof(args[1]) == "Vector3" then
+
+            local char = LocalPlayer.Character
+            local hrp = getHRP(char)
+
+            if not hrp then
+                return old(self, ...)
+            end
+
+            -- 🔴 REVALIDAÇÃO FINAL DE DISTÂNCIA
+            if (TargetPosition - hrp.Position).Magnitude > MaxRange then
+                TargetPosition = nil
+                CurrentTargetHRP = nil
+                return old(self, ...)
+            end
+
+            args[1] = TargetPosition
+            return old(self, unpack(args))
+        end
+
+        return old(self, ...)
+    end)
+
+    setreadonly(mt, true)
 end)
 
-local HighlightToggle = Section:NewToggle("・Main Highlight", "Current Target Highlighted", function(state)
-    SilentAimModule:SetHighlight(state)
-    Settings["Highlight"] = state
-end)
+-- =========================
+-- MAIN LOOP
+-- =========================
+RunService.RenderStepped:Connect(function()
+    local char = LocalPlayer.Character
+    local hrp = getHRP(char)
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then return end
 
-local ZskillMOneToggle = Section:NewToggle("・Z|M1 Skills(except Godhuman Z)", "Silent Aim That Work Some Skills", function(state)
-    SilentAimModule:SetZSkillorM1(state)
-    Settings["Zskillmone"] = state
-end)
-
-local Tab = Window:NewTab("✿・Features")
-local Section = Tab:NewSection("⚜・Settings")
-
-Section:NewButton("Join Discord", "Get Link Discord server", function()
-	local link = "https://discord.gg/fKwqmB4C"
-    if setclipboard then
-        setclipboard(link)
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Sapi Hub",
-            Text = "Copied Discord Link!",
-            Duration = 5
-        })
+    -- SPEED
+    if SpeedEnabled then
+        hum.WalkSpeed = SpeedValue
     end
-end)
 
-local ESPPlayersToggle = Section:NewToggle("・ESP Players", "Toggle Player ESP", function(state)
-    ESPModule:SetESP(state)
-    Settings["ESPPlayers"] = state
-end)
-
-local V3SkillToggle = Section:NewToggle("・V3 Skill", "Auto activate V3 ability", function(state)
-    ESPModule:SetV3(state)
-    Settings["V3Skill"] = state
-end)
-
-local BunnyHopToggle = Section:NewToggle("・Bunny hop", "Toggle Bunnyhop", function(state)
-    ESPModule:SetBunnyhop(state)
-    Settings["BunnyHop"] = state
-end)
-
-local AuraSkillToggle = Section:NewToggle("・Aura Skill", "Auto activate Buso", function(state)
-    ESPModule:SetBuso(state)
-    Settings["AuraSkill"] = state
-end)
-
-local FpsOrPingsToggle = Section:NewToggle("・Fps Or Pings", "Display Ping or Fps", function(state)
-    StuffsModule:SetPingsOrFps(state)
-    Settings["FpsOrPings"] = state
-end)
-
-Section:NewTextBox("Speed Hack", "WalkSpeedValue", function(speedfunc)
-    local num = tonumber(speedfunc)
-    if num then
-        getgenv().WalkSpeedValue = num
-        UiSettingsModule:SetWalkSpeed(num)
+    -- ANTISTUN
+    if AntiStunEnabled then
+        local move = hum.MoveDirection
+        if move.Magnitude > 0 then
+            hrp.CFrame = hrp.CFrame + move.Unit * AntiStunPower
+        end
     end
-end)
 
-local FpsBoostToggle = Section:NewToggle("・Fps Boost", "Increase Fps", function(state)
-    StuffsModule:SetFpsBoost(state)
-    Settings["FpsBoost"] = state
-end)
+    -- =========================
+    -- SILENT AIM LOGIC (DEFENSIVA)
+    -- =========================
+    if SilentAimEnabled then
+        local targetHRP = getClosestPlayer(hrp)
 
-local INFEnergyToggle = Section:NewToggle("・INF Energy", "Max Energy", function(state)
-    StuffsModule:SetINFEnergy(state)
-    Settings["INFEnergy"] = state
-end)
-
-local WalkonWaterToggle = Section:NewToggle("・Walk on Water", "Travel in Water", function(state)
-    StuffsModule:SetWalkWater(state)
-    Settings["WalkonWater"] = state
-end)
-
-local FastAttackToggle = Section:NewToggle("・Fast Attack", "Fast Attack", function(state)
-    StuffsModule:SetFastAttack(state)
-    Settings["FastAttack"] = state
-end)
-
-local AntiAFKToggle = Section:NewToggle("・AntiAfk", "AntiAfk only on before you off", function(state)
-    ESPModule:SetAntiAfk(state)
-    Settings["AntiAFK"] = state
-end)
-
-Section:NewTextBox("Jump Power", "JumpValue", function(jumpfunc)
-  getgenv().JumpValue = jumpfunc
-    if getgenv().JumpValue then
-        game:GetService("Players").LocalPlayer.Character.Humanoid.JumpPower = getgenv().JumpValue
-    end
-end)
-
-local V4Toggle = Section:NewToggle("・Auto V4", "Auto V4 Transform", function(state)
-    UiSettingsModule:SetV4(state)
-    Settings["V4"] = state
-end)
-
-local FruitCheckToggle = Section:NewToggle("・Spawned Fruit Check", "Check Fruit Spawned", function(state)
-    UiSettingsModule:SetFruitCheck(state)
-    Settings["FruitCheck"] = state
-end)
-
-local TeleportFruitToggle = Section:NewToggle("・Bring Fruits", "It take few seconds to bring fruits", function(state)
-    UiSettingsModule:SetTeleportFruit(state)
-    Settings["TeleportFruit"] = state
-end)
-
-local AutoKenToggle = Section:NewToggle("・Auto Ken", " AutoKen", function(state)
-    SilentAimModule:SetAutoKen(state)
-    Settings["AutoKen"] = state
-end)
-
-local LavaToggle = Section:NewToggle("・Remove Lava", "Remove Lava", function(state)
-    StuffsModule:SetLava(state)
-    Settings["Lava"] = state
-end)
-
-local FogToggle = Section:NewToggle("・Remove Fog", "Remove Fog", function(state)
-    StuffsModule:SetFog(state)
-    Settings["Fog"] = state
-end)
-
-local DodgeToggle = Section:NewToggle("・Dodge no cd", "Dodge no cd", function(state)
-    ESPModule:SetNoDodgeCD(state)
-    Settings["Dodge"] = state
-end)
-
-local OpponentToggle = Section:NewToggle("・Target Info(Name/Health)", "Info Of Target", function(state)
-    ZSkillModule:SetInfo(state)
-    Settings["Opponent"] = state
-end)
-
-local Tab = Window:NewTab("⚙・Settings Manager")
-local Section = Tab:NewSection("💾・Settings")
-
-Section:NewTextBox("Paste Job Id Here", "Paste JobId and press Enter", function(jobid)
-    if jobid and jobid ~= "" then
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, jobid, Players.LocalPlayer)
-    end
-end)
-
-Section:NewButton("Save Current Settings", "Save all current settings", function()
-    OthersStuffsModule.SaveSettings(Settings)
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Sapi Hub",
-        Text = "Settings Saved!",
-        Duration = 4
-    })
-end)
-
-Section:NewButton("Reset Settings", "Clear saved settings", function()
-    OthersStuffsModule.ResetSettings()
-    Settings = {} -- also clear local
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Sapi Hub",
-        Text = "Settings Reset!",
-        Duration = 4
-    })
-end)
-
-Section:NewButton("Rejoin Server", "Rejoin your server", function()
-    StuffsModule:SetRejoinServer()
-end)
-
-Section:NewDropdown("・Global Text Font", "Change font for all text", {
-    "Arcade",
-    "Cartoon",
-    "SciFi",
-    "Fantasy",
-    "Antique",
-    "Garamond",
-    "RobotoMono",
-    "FredokaOne",
-    "LuckiestGuy",
-    "PermanentMarker",
-    "SpecialElite",
-    "Oswald",
-    "Nunito"
-}, function(selected)
-    local fontEnum = Enum.Font[selected]
-    if fontEnum then
-        ESPModule:SetGlobalFont(fontEnum)
-        Settings["GlobalFont"] = selected
+        if targetHRP then
+            CurrentTargetHRP = targetHRP
+            TargetPosition = getPredictedPosition(targetHRP)
+        else
+            -- 🔴 LIMPA IMEDIATAMENTE
+            CurrentTargetHRP = nil
+            TargetPosition = nil
+        end
     else
-        warn("Font not found:", selected)
+        CurrentTargetHRP = nil
+        TargetPosition = nil
     end
-end)
 
-Section:NewDropdown("・RTX Graphics Mode", "Choose between Autumn or Summer or Spring or Winter", {"Autumn", "Summer", "Spring", "Winter"}, function(selected)
-    ESPModule:SetRTXMode(selected)
-    Settings["RTXMode"] = selected
-end)
+    -- =========================
+    -- ESP
+    -- =========================
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            if not ESPs[plr] then
+                local head = plr.Character and plr.Character:FindFirstChild("Head")
+                if head then
+                    local gui = Instance.new("BillboardGui")
+                    gui.Name = plr.Name
+                    gui.Adornee = head
+                    gui.Size = UDim2.fromOffset(240, 50)
+                    gui.StudsOffset = Vector3.new(0, 3, 0)
+                    gui.AlwaysOnTop = true
+                    gui.Parent = espFolder
 
-Section:NewDropdown("Select Theme", "Choose a color theme", UiSettingsModule:getThemeNames(), function(selected)
-    local newColor = UiSettingsModule.themes[selected]
-    if newColor then
-        UiSettingsModule:updateSchemeColor(newColor, Library)
-    end
-end)
+                    local lvl = Instance.new("TextLabel", gui)
+                    lvl.Name = "Level"
+                    lvl.Size = UDim2.new(1, 0, 0.45, 0)
+                    lvl.BackgroundTransparency = 1
+                    lvl.Font = Enum.Font.SourceSansBold
+                    lvl.TextSize = 13
+                    lvl.TextStrokeTransparency = 0.2
+                    lvl.TextColor3 = Color3.fromRGB(0, 170, 255)
 
-Section:NewDropdown("Select Background Theme", "Choose a color background", UiSettingsModule:getBackgroundThemeNames(), function(selected)
-    local newColor = UiSettingsModule.backgroundThemes[selected]
-    if newColor then
-        UiSettingsModule:updateBackgroundColor(newColor, Library)
-    end
-end)
+                    local main = Instance.new("TextLabel", gui)
+                    main.Name = "Main"
+                    main.Size = UDim2.new(1, 0, 0.55, 0)
+                    main.Position = UDim2.new(0, 0, 0.45, 0)
+                    main.BackgroundTransparency = 1
+                    main.Font = Enum.Font.SourceSansBold
+                    main.TextSize = 14
+                    main.TextStrokeTransparency = 0.2
 
-Section:NewDropdown("Select TextColor", "Choose a textcolor", UiSettingsModule:getThemeNames(), function(selected)
-    local newColor = UiSettingsModule.themes[selected]
-    if newColor then
-        UiSettingsModule:updateTextColor(newColor, Library)
-    end
-end)
+                    ESPs[plr] = gui
+                end
+            end
 
-Settings = OthersStuffsModule.LoadSettings()
+            local gui = ESPs[plr]
+            local pHRP = plr.Character and getHRP(plr.Character)
+            local pHum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
 
-OthersStuffsModule:ApplySettings(Settings, {
-    Aimlock = AimlockModule,
-    SilentAim = SilentAimModule,
-    ESP = ESPModule,
-    Stuffs = StuffsModule,
-    Ui = UiSettingsModule,
-    Zskill= ZSkillModule
-}, {
-    AimlockPlayers = AimlockPlayersToggle,
-    AimlockPlayersMiniTogglePlayers = AimlockPlayersMiniTogglePlayersToggle,
-    AimlockNPC = AimlockNPCToggle,
-    SilentAimPlayers = SilentAimPlayersToggle,
-    SilentAimNPC = SilentAimNPCToggle,
-    ESPPlayers = ESPPlayersToggle,
-    AntiAFK = AntiAFKToggle,
-    FpsOrPings = FpsOrPingsToggle,
-    FpsBoost = FpsBoostToggle,
-    INFEnergy = INFEnergyToggle,
-    FastAttack = FastAttackToggle,
-    WalkonWater = WalkonWaterToggle,
-    V4 = V4Toggle,
-    FruitCheck = FruitCheckToggle,
-    TeleportFruit = TeleportFruitToggle,
-    AutoKen = AutoKenToggle,
-    ZSkills = ZSkillToggle,
-    BunnyHop = BunnyHopToggle,
-    AuraSkill = AuraSkillToggle,
-    V3Skill = V3SkillToggle,
-    Highlight = HighlightToggle,
-    SilentMiniToggleNPC = SilentMiniToggleNPCToggle,
-    SilentMiniTogglePlayers = SilentMiniTogglePlayersToggle,
-    Zskillmone = ZskillMOneToggle,
-    SilentAimPediction = SilentAimPedictionToggle,
-    Dodge = DodgeToggle,
-    Lava = LavaToggle,
-    Fog = FogToggle
-})
-
-OthersStuffsModule.StartFruitNotifier()
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.M then
-        Library:ToggleUI()
-		toggleButton.Visible = not toggleButton.Visible
-    end
-end)
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and UserInputService.KeyboardEnabled and input.KeyCode == Enum.KeyCode.G then
-
-        Settings["SilentAimPlayers"] = not Settings["SilentAimPlayers"]
-        SilentAimModule:SetPlayerSilentAim(Settings["SilentAimPlayers"])
-        if SilentAimPlayersToggle then
-            SilentAimPlayersToggle:UpdateToggle(Settings["SilentAimPlayers"])
+            if ESPEnabled and gui and pHRP and pHum then
+                gui.Enabled = true
+                local dist = math.floor((hrp.Position - pHRP.Position).Magnitude)
+                gui.Main.Text = "[" .. math.floor(pHum.Health) .. "] " .. plr.DisplayName .. " (" .. dist .. "m)"
+                gui.Main.TextColor3 = getMainColor(plr)
+            elseif gui then
+                gui.Enabled = false
+            end
         end
     end
 end)
 
-toggleButton.MouseButton1Click:Connect(function()
-    Library:ToggleUI()
+-- =========================
+-- INPUTS
+-- =========================
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+
+    if input.KeyCode == Enum.KeyCode.L then
+        ESPEnabled = not ESPEnabled
+
+    elseif input.KeyCode == Enum.KeyCode.B then
+        SilentAimEnabled = not SilentAimEnabled
+
+    elseif input.KeyCode == Enum.KeyCode.K then
+        SpeedEnabled = not SpeedEnabled
+        AntiStunEnabled = SpeedEnabled
+        AntiStunPower = 1.2
+
+    elseif input.KeyCode == Enum.KeyCode.P then
+        if not SpeedEnabled then
+            AntiStunEnabled = not AntiStunEnabled
+            AntiStunPower = AntiStunEnabled and 0.4 or 1.2
+        end
+    end
 end)
